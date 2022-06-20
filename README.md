@@ -4,6 +4,8 @@ A prometheus exporter for Speedtest.net results
 
 ## Features
 
+Periodically checks SpeedTest.net and exposes the download speed, upload speed and latency as prometheus metrics.
+
 ## Install
 
 ```sh
@@ -25,6 +27,8 @@ make build
 ```
 
 ## Resources
+
+* https://github.com/showwin/speedtest-go
 
 ## Contributing
 
