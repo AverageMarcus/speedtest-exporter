@@ -26,8 +26,10 @@ func main() {
 	flag.IntVar(&port, "port", 9091, "The port to listen on")
 
 	go (func() {
-		checkSpeed()
-		time.Sleep(time.Minute * time.Duration(interval))
+		for {
+			checkSpeed()
+			time.Sleep(time.Minute * time.Duration(interval))
+		}
 	})()
 
 	collector := newSpeedCollector()
