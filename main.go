@@ -43,9 +43,21 @@ func main() {
 
 func checkSpeed() {
 	log.Println("Performing speedtest")
-	user, _ := speedtest.FetchUserInfo()
-	serverList, _ := speedtest.FetchServers(user)
-	targets, _ := serverList.FindServer([]int{})
+	user, err := speedtest.FetchUserInfo()
+	if err != nil {
+		log.Printf("Error fetching user info: %v\n", err)
+		return
+	}
+	serverList, err := speedtest.FetchServers(user)
+	if err != nil {
+		log.Printf("Error fetching server list: %v\n", err)
+		return
+	}
+	targets, err := serverList.FindServer([]int{})
+	if err != nil {
+		log.Printf("Error finding server: %v\n", err)
+		return
+	}
 	target := targets[0]
 	log.Printf("Testing against server: %s - %s\n", target.Name, target.Sponsor)
 
