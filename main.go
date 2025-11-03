@@ -88,7 +88,12 @@ func checkSpeed() {
 			target.PingTest()
 			target.DownloadTest(false)
 			target.UploadTest(false)
-			log.Printf("Finished speedtest. DL=%f UL=%f Ping=%v\n", target.DLSpeed, target.ULSpeed, target.Latency)
+			if target.DLSpeed > 0 && target.ULSpeed > 0 {
+				log.Printf("Finished speedtest. DL=%f UL=%f Ping=%v\n", target.DLSpeed, target.ULSpeed, target.Latency)
+			} else {
+				log.Printf("Finished speedtest. Failed to get valid results\n")
+			}
+
 		}
 	}
 
