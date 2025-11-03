@@ -19,11 +19,13 @@ var (
 
 	interval int
 	port     int
+	serverID int
 )
 
 func init() {
 	flag.IntVar(&interval, "interval", 30, "Duration, in minutes, between speedtest runs")
 	flag.IntVar(&port, "port", 9091, "The port to listen on")
+	flag.IntVar(&serverID, "server", 55637, "The ID of the server to test against")
 	flag.Parse()
 }
 
@@ -53,10 +55,18 @@ func checkSpeed() {
 		log.Printf("Error fetching server list: %v\n", err)
 		return
 	}
-	targets, err := serverList.FindServer([]int{})
+	targets, err := serverList.FindServer([]int{serverID})
 	if err != nil {
 		log.Printf("Error finding server: %v\n", err)
 		return
+	}
+	if len(targets) == 0 {
+		log.Printf("No servers found, falling back to defaults...")
+		targets, err = serverList.FindServer([]int{serverID})
+		if err != nil {
+			log.Printf("Error finding server: %v\n", err)
+			return
+		}
 	}
 	target := targets[0]
 	log.Printf("Testing against server: %s - %s\n", target.Name, target.Sponsor)
