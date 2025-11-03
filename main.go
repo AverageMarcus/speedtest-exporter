@@ -26,7 +26,7 @@ var (
 func init() {
 	flag.IntVar(&interval, "interval", 30, "Duration, in minutes, between speedtest runs")
 	flag.IntVar(&port, "port", 9091, "The port to listen on")
-	flag.IntVar(&serverID, "server", 55637, "The ID of the server to test against")
+	flag.IntVar(&serverID, "server", 55137, "The ID of the server to test against")
 	flag.Parse()
 }
 
