@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -68,8 +69,9 @@ func checkSpeed() {
 			return
 		}
 	}
+
 	target := targets[0]
-	log.Printf("Testing against server: %s - %s\n", target.Name, target.Sponsor)
+	log.Printf("Testing against server: %s - %s [%s]\n", target.Name, target.Sponsor, target.ID)
 
 	target.PingTest()
 	target.DownloadTest(false)
@@ -78,6 +80,23 @@ func checkSpeed() {
 	downspeed = target.DLSpeed
 	upspeed = target.ULSpeed
 	log.Printf("Finished speedtest. DL=%f UL=%f Ping=%v\n", downspeed, upspeed, latency)
+
+	if os.Getenv("DEBUG") != "" {
+		log.Println("Debug enabled, testing all servers...")
+		targets, err := serverList.FindServer([]int{serverID})
+		if err != nil {
+			log.Printf("Error finding server: %v\n", err)
+			return
+		}
+		for _, target := range targets {
+			log.Printf("Testing against server: %s - %s\n", target.Name, target.Sponsor)
+			target.PingTest()
+			target.DownloadTest(false)
+			target.UploadTest(false)
+			log.Printf("Finished speedtest. DL=%f UL=%f Ping=%v\n", target.DLSpeed, target.ULSpeed, target.Latency)
+		}
+	}
+
 }
 
 type speedCollector struct {
