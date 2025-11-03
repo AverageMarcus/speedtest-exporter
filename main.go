@@ -83,13 +83,13 @@ func checkSpeed() {
 
 	if os.Getenv("DEBUG") != "" {
 		log.Println("Debug enabled, testing all servers...")
-		targets, err := serverList.FindServer([]int{serverID})
+		targets, err := serverList.FindServer([]int{})
 		if err != nil {
 			log.Printf("Error finding server: %v\n", err)
 			return
 		}
 		for _, target := range targets {
-			log.Printf("Testing against server: %s - %s\n", target.Name, target.Sponsor)
+			log.Printf("Testing against server: %s - %s [%s]\n", target.Name, target.Sponsor, target.ID)
 			target.PingTest()
 			target.DownloadTest(false)
 			target.UploadTest(false)
