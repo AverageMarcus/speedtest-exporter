@@ -33,8 +33,12 @@ func init() {
 func main() {
 	go (func() {
 		for {
-			checkSpeed()
-			time.Sleep(time.Minute * time.Duration(interval))
+			if err := checkSpeed(); err != nil {
+				// Retry after a minute on error
+				time.Sleep(time.Minute)
+			} else {
+				time.Sleep(time.Minute * time.Duration(interval))
+			}
 		}
 	})()
 
@@ -44,44 +48,57 @@ func main() {
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 }
 
-func checkSpeed() {
+func checkSpeed() error {
 	log.Println("Performing speedtest")
 	user, err := speedtest.FetchUserInfo()
 	if err != nil {
 		log.Printf("Error fetching user info: %v\n", err)
-		return
+		return err
 	}
 	serverList, err := speedtest.FetchServers(user)
 	if err != nil {
 		log.Printf("Error fetching server list: %v\n", err)
-		return
+		return err
 	}
 	targets, err := serverList.FindServer([]int{serverID})
 	if err != nil {
 		log.Printf("Error finding server: %v\n", err)
-		return
+		return err
 	}
 	if len(targets) == 0 {
 		log.Printf("No servers found, falling back to defaults...")
 		targets, err = serverList.FindServer([]int{serverID})
 		if err != nil {
 			log.Printf("Error finding server: %v\n", err)
-			return
+			return err
 		}
 	}
 
 	target := targets[0]
 	log.Printf("Testing against server: %s - %s [%s]\n", target.Name, target.Sponsor, target.ID)
 
-	target.PingTest()
-	target.DownloadTest(false)
-	target.UploadTest(false)
+	err = target.PingTest()
+	if err != nil {
+		log.Printf("Error running ping test: %v\n", err)
+		return err
+	}
+	err = target.DownloadTest(false)
+	if err != nil {
+		log.Printf("Error running download test: %v\n", err)
+		return err
+	}
+	err = target.UploadTest(false)
+	if err != nil {
+		log.Printf("Error runing upload test: %v\n", err)
+		return err
+	}
 	latency = target.Latency
 	downspeed = target.DLSpeed
 	upspeed = target.ULSpeed
 	log.Printf("Finished speedtest. DL=%f UL=%f Ping=%v\n", downspeed, upspeed, latency)
 
 	if os.Getenv("DEBUG") != "" {
+		log.Println("-------------------------------------")
 		log.Println("Debug enabled, testing all servers...")
 		for _, target := range serverList {
 			log.Printf("Testing against server: %s - %s [%s]\n", target.Name, target.Sponsor, target.ID)
@@ -93,10 +110,11 @@ func checkSpeed() {
 			} else {
 				log.Printf("Finished speedtest. Failed to get valid results\n")
 			}
-
 		}
+		log.Println("-------------------------------------")
 	}
 
+	return nil
 }
 
 type speedCollector struct {
