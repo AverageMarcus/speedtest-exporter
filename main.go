@@ -101,14 +101,14 @@ func checkSpeed() error {
 		log.Println("-------------------------------------")
 		log.Println("Debug enabled, testing all servers...")
 		for _, target := range serverList {
-			log.Printf("Testing against server: %s - %s [%s]\n", target.Name, target.Sponsor, target.ID)
+			log.Printf("Testing against server: %s - %s [%s]", target.Name, target.Sponsor, target.ID)
 			target.PingTest()
 			target.DownloadTest(false)
 			target.UploadTest(false)
 			if target.DLSpeed > 0 && target.ULSpeed > 0 {
-				log.Printf("Finished speedtest. DL=%f UL=%f Ping=%v\n", target.DLSpeed, target.ULSpeed, target.Latency)
+				log.Printf(" - DL=%f UL=%f Ping=%v\n", target.DLSpeed, target.ULSpeed, target.Latency)
 			} else {
-				log.Printf("Finished speedtest. Failed to get valid results\n")
+				log.Printf(" - Failed to get valid results\n")
 			}
 		}
 		log.Println("-------------------------------------")
