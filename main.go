@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,7 +21,15 @@ var (
 	port     int
 	serverID int
 	cutOff   float64
+
+	allTargets = map[string]Results{}
 )
+
+type Results struct {
+	Latency   time.Duration
+	Downspeed float64
+	Upspeed   float64
+}
 
 func init() {
 	flag.IntVar(&interval, "interval", 30, "Duration, in minutes, between speedtest runs")
@@ -76,18 +83,23 @@ func checkSpeed() error {
 		}
 	}
 
+	log.Println("Testing main server...")
 	latency, downspeed, upspeed, err = TestServer(targets[0])
 	if err != nil {
 		return err
 	}
 
-	if os.Getenv("DEBUG") != "" {
-		log.Println("-------------------------------------")
-		log.Println("Debug enabled, testing all servers...")
-		for _, target := range serverList {
-			TestServer(target)
+	log.Println("Testing all servers...")
+	for _, target := range serverList {
+		latency, downspeed, upspeed, err := TestServer(target)
+		if err != nil {
+			continue
 		}
-		log.Println("-------------------------------------")
+		allTargets[fmt.Sprintf("%s - %s - %s", target.ID, target.Name, target.Sponsor)] = Results{
+			Latency:   latency,
+			Downspeed: downspeed,
+			Upspeed:   upspeed,
+		}
 	}
 
 	return nil
@@ -128,9 +140,12 @@ func TestServer(target *speedtest.Server) (time.Duration, float64, float64, erro
 }
 
 type speedCollector struct {
-	downMetric    *prometheus.Desc
-	upMetric      *prometheus.Desc
-	latencyMetric *prometheus.Desc
+	downMetric          *prometheus.Desc
+	upMetric            *prometheus.Desc
+	latencyMetric       *prometheus.Desc
+	downMetricTarget    *prometheus.Desc
+	upMetricTarget      *prometheus.Desc
+	latencyMetricTarget *prometheus.Desc
 }
 
 func newSpeedCollector() *speedCollector {
@@ -147,6 +162,18 @@ func newSpeedCollector() *speedCollector {
 			"Latency in ms",
 			nil, nil,
 		),
+		downMetricTarget: prometheus.NewDesc("speedtest_download_speed_target",
+			"Download speed in Mbit/s for target",
+			[]string{"target"}, nil,
+		),
+		upMetricTarget: prometheus.NewDesc("speedtest_upload_speed_target",
+			"Upload speed in Mbit/s for target",
+			[]string{"target"}, nil,
+		),
+		latencyMetricTarget: prometheus.NewDesc("speedtest_latency_target",
+			"Latency in ms for target",
+			[]string{"target"}, nil,
+		),
 	}
 }
 
@@ -154,10 +181,19 @@ func (collector *speedCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- collector.downMetric
 	ch <- collector.upMetric
 	ch <- collector.latencyMetric
+	ch <- collector.downMetricTarget
+	ch <- collector.upMetricTarget
+	ch <- collector.latencyMetricTarget
 }
 
 func (collector *speedCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(collector.downMetric, prometheus.CounterValue, downspeed)
 	ch <- prometheus.MustNewConstMetric(collector.upMetric, prometheus.CounterValue, upspeed)
 	ch <- prometheus.MustNewConstMetric(collector.latencyMetric, prometheus.CounterValue, float64(latency.Milliseconds()))
+
+	for target, result := range allTargets {
+		ch <- prometheus.MustNewConstMetric(collector.downMetricTarget, prometheus.CounterValue, result.Downspeed, target)
+		ch <- prometheus.MustNewConstMetric(collector.upMetricTarget, prometheus.CounterValue, result.Upspeed, target)
+		ch <- prometheus.MustNewConstMetric(collector.latencyMetricTarget, prometheus.CounterValue, float64(result.Latency.Milliseconds()), target)
+	}
 }
