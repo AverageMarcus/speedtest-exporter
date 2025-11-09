@@ -21,12 +21,14 @@ var (
 	interval int
 	port     int
 	serverID int
+	cutOff   float64
 )
 
 func init() {
 	flag.IntVar(&interval, "interval", 30, "Duration, in minutes, between speedtest runs")
 	flag.IntVar(&port, "port", 9091, "The port to listen on")
 	flag.IntVar(&serverID, "server", 55137, "The ID of the server to test against")
+	flag.Float64Var(&cutOff, "cut-off", 1024, "The upper limit expected from speed test. Values above this are treated as invalid")
 	flag.Parse()
 }
 
@@ -74,51 +76,55 @@ func checkSpeed() error {
 		}
 	}
 
-	target := targets[0]
-	log.Printf("Testing against server: %s - %s [%s]\n", target.Name, target.Sponsor, target.ID)
-
-	err = target.PingTest()
+	latency, downspeed, upspeed, err = TestServer(targets[0])
 	if err != nil {
-		log.Printf("Error running ping test: %v\n", err)
 		return err
 	}
-	err = target.DownloadTest(false)
-	if err != nil {
-		log.Printf("Error running download test: %v\n", err)
-		return err
-	}
-	err = target.UploadTest(false)
-	if err != nil {
-		log.Printf("Error runing upload test: %v\n", err)
-		return err
-	}
-	latency = target.Latency
-	downspeed = target.DLSpeed
-	upspeed = target.ULSpeed
-	log.Printf("Finished speedtest. DL=%f UL=%f Ping=%v\n", downspeed, upspeed, latency)
 
 	if os.Getenv("DEBUG") != "" {
 		log.Println("-------------------------------------")
 		log.Println("Debug enabled, testing all servers...")
 		for _, target := range serverList {
-			target.PingTest()
-			target.DownloadTest(false)
-			target.UploadTest(false)
-			if target.DLSpeed > 0 && target.ULSpeed > 0 {
-				log.Printf("Testing against server: %s - %s [%s] - DL=%f UL=%f Ping=%v\n",
-					target.Name, target.Sponsor, target.ID,
-					target.DLSpeed, target.ULSpeed, target.Latency,
-				)
-			} else {
-				log.Printf("Testing against server: %s - %s [%s] - Failed to get valid results\n",
-					target.Name, target.Sponsor, target.ID,
-				)
-			}
+			TestServer(target)
 		}
 		log.Println("-------------------------------------")
 	}
 
 	return nil
+}
+
+func TestServer(target *speedtest.Server) (time.Duration, float64, float64, error) {
+	var err error
+
+	err = target.PingTest()
+	if err != nil {
+		log.Printf("Error running ping test: %v\n", err)
+		return 0, 0, 0, err
+	}
+	err = target.DownloadTest(false)
+	if err != nil {
+		log.Printf("Error running download test: %v\n", err)
+		return 0, 0, 0, err
+	}
+	err = target.UploadTest(false)
+	if err != nil {
+		log.Printf("Error runing upload test: %v\n", err)
+		return 0, 0, 0, err
+	}
+
+	if target.DLSpeed > 0 && target.ULSpeed > 0 && target.DLSpeed < cutOff && target.ULSpeed < cutOff {
+		log.Printf("Testing against server: %s - %s [%s] - DL=%f UL=%f Ping=%v\n",
+			target.Name, target.Sponsor, target.ID,
+			target.DLSpeed, target.ULSpeed, target.Latency,
+		)
+	} else {
+		log.Printf("Testing against server: %s - %s [%s] - Failed to get valid results\n",
+			target.Name, target.Sponsor, target.ID,
+		)
+		err = fmt.Errorf("invalid test results")
+	}
+
+	return target.Latency, target.DLSpeed, target.ULSpeed, err
 }
 
 type speedCollector struct {
